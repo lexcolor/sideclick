@@ -1,0 +1,131 @@
+name: Windows Installer
+
+# Builds the Windows .msix installer on a GitHub-hosted Windows runner and
+# attaches it to a GitHub Release. No local Windows machine required.
+#
+# Triggers on version tags (e.g. `git tag v1.0.0 && git push origin v1.0.0`),
+# and can also be run manually from the Actions tab.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # needed to create the Release and upload assets
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      # Builds the release app and packages it into a self-signed .msix using
+      # the `msix_config:` block in pubspec.yaml.
+      #
+      # ── Signing with a REAL certificate (optional) ──────────────────────
+      # For an installer that other machines trust without a SmartScreen
+      # warning, add these repo secrets:
+      #   MSIX_CERT_BASE64      – your .pfx, base64-encoded
+      #   MSIX_CERT_PASSWORD    – its password
+      # then replace the "Build MSIX (self-signed)" step with:
+      #
+      #   - name: Restore signing certificate
+      #     run: |
+      #       [IO.File]::WriteAllBytes("cert.pfx",
+      #         [Convert]::FromBase64String("${{ secrets.MSIX_CERT_BASE64 }}"))
+      #     shell: pwsh
+      #   - name: Build signed MSIX
+      #     run: dart run msix:create -c cert.pfx -p "${{ secrets.MSIX_CERT_PASSWORD }}"
+      #
+      # (Ensure `publisher:` in pubspec.yaml matches the cert's subject.)
+      # `--install-certificate false` skips msix's interactive "install this
+      # test cert?" prompt, which has no stdin in CI and otherwise crashes the
+      # run. The .msix is still signed with the generated self-signed cert, so
+      # it's a valid installer (end users import the cert to install it).
+      - name: Build MSIX (self-signed)
+        run: dart run msix:create --install-certificate false
+
+      - name: Locate MSIX and export its signing certificate
+        id: find
+        shell: pwsh
+        run: |
+          $msix = Get-ChildItem -Recurse -Filter *.msix `
+            -Path build/windows | Select-Object -First 1
+          if (-not $msix) { throw "No .msix produced" }
+          echo "path=$($msix.FullName)" >> $env:GITHUB_OUTPUT
+          echo "Found $($msix.FullName)"
+
+          # Export the public signing certificate (.cer) next to the .msix so
+          # users can trust it before installing (self-signed packages require
+          # the cert in Trusted People / Trusted Root first).
+          $certPath = Join-Path $msix.DirectoryName "sideclick_certificate.cer"
+          $sig = Get-AuthenticodeSignature $msix.FullName
+          if ($sig.SignerCertificate) {
+            Export-Certificate -Cert $sig.SignerCertificate -FilePath $certPath | Out-Null
+            echo "cert=$certPath" >> $env:GITHUB_OUTPUT
+            echo "Exported certificate to $certPath"
+          } else {
+            echo "cert=" >> $env:GITHUB_OUTPUT
+            echo "::warning::No signer certificate found on the package."
+          }
+
+      # Also expose the installer + cert as workflow artifacts (handy for
+      # workflow_dispatch runs that aren't tied to a tag).
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sideclick-msix
+          path: |
+            ${{ steps.find.outputs.path }}
+            ${{ steps.find.outputs.cert }}
+          retention-days: 30
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.find.outputs.path }}
+            ${{ steps.find.outputs.cert }}
+          draft: false
+          generate_release_notes: true
+          body: |
+            ## Installing on Windows
+
+            This build is **self-signed**, so Windows requires you to trust its
+            certificate before installing (otherwise the Install button stays
+            greyed out with error `0x800B010A`).
+
+            1. Download both `sideclick.msix` and `sideclick_certificate.cer`.
+            2. In **PowerShell as Administrator**, import the certificate:
+               ```powershell
+               Import-Certificate -FilePath .\sideclick_certificate.cer `
+                 -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+               ```
+            3. Double-click `sideclick.msix` — **Install** is now enabled.
+
+            To skip this for good, ship a build signed with a real
+            code-signing certificate (see `BUILD_WINDOWS.md`).
