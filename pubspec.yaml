@@ -1,0 +1,104 @@
+name: sideclick
+description: "A focused ClickUp task client — only your assigned tasks."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # HTTP
+  dio: ^5.5.0
+
+  # Encrypted local token storage (no OS Keychain / signing required)
+  encrypt: ^5.0.3
+
+  # Offline cache + action queue (SQLite)
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Immutable models
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Connectivity (for offline mutation flushing)
+  connectivity_plus: ^6.0.5
+
+  # File pick / open
+  file_picker: ^8.1.2
+  open_filex: ^4.5.0
+  url_launcher: ^6.3.0
+
+  # Misc UI helpers
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Codegen
+  build_runner: ^2.4.11
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+  drift_dev: ^2.20.0
+  flutter_launcher_icons: ^0.14.1
+  msix: ^3.16.7
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+
+# App icon generation: run `dart run flutter_launcher_icons`.
+flutter_launcher_icons:
+  image_path: "assets/icon/sideclick_icon.png"
+  # Desktop
+  macos:
+    generate: true
+    image_path: "assets/icon/sideclick_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/sideclick_icon.png"
+    icon_size: 256
+  # Mobile
+  android: true
+  min_sdk_android: 21
+  # iOS icons must be fully opaque (no alpha) — use the flattened variant.
+  ios: true
+  remove_alpha_ios: true
+  # Adaptive icon for modern Android (foreground on a solid brand background).
+  adaptive_icon_background: "#2B3A8F"
+  adaptive_icon_foreground: "assets/icon/sideclick_fg.png"
+
+# Windows installer (MSIX). Build on a Windows host: see BUILD_WINDOWS.md.
+#   flutter build windows --release
+#   dart run msix:create            (installable .msix)
+# For a Store submission use `dart run msix:create --store` instead.
+msix_config:
+  display_name: SideClick
+  publisher_display_name: Alex Colorado
+  identity_name: com.sideclick.sideclick
+  # NOTE: `publisher` must exactly match your signing certificate's subject.
+  # For local/self-signed testing the default below works; replace for release.
+  publisher: CN=SideClick
+  msix_version: 1.0.0.0
+  logo_path: assets/icon/sideclick_icon.png
+  # App has no special OS capabilities beyond outbound network (internetClient).
+  capabilities: internetClient
+  # Architecture of the produced package.
+  architecture: x64
