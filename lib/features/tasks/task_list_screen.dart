@@ -7,6 +7,7 @@ import '../../providers/detail_providers.dart';
 import '../../providers/tasks_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../sync/sync_service.dart';
+import '../task_detail/live_timer_text.dart';
 import '../task_detail/task_detail_screen.dart';
 import 'filter_bar.dart';
 import 'task_card.dart';
@@ -307,9 +308,24 @@ class _TimerBadge extends ConsumerWidget {
           child: ActionChip(
             avatar: const Icon(Icons.fiber_manual_record,
                 size: 12, color: Color(0xFFE5484D)),
-            label: Text(entry.task?.name != null
-                ? _short(entry.task!.name!)
-                : 'Tracking'),
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(entry.task?.name != null
+                    ? _short(entry.task!.name!)
+                    : 'Tracking'),
+                if (entry.start != null) ...[
+                  const SizedBox(width: 6),
+                  LiveTimerText(
+                    startEpochMs: entry.start!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ],
+            ),
             onPressed: entry.task == null
                 ? null
                 : () => Navigator.of(context).push(

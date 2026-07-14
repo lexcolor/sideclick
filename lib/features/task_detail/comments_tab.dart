@@ -22,25 +22,41 @@ class _CommentsTabState extends ConsumerState<CommentsTab> {
   Future<void> _send(List<CommentToken> tokens, bool notifyAll) async {
     setState(() => _sending = true);
     final repo = ref.read(commentRepositoryProvider);
-    final res =
-        await repo.createComment(widget.taskId, tokens, notifyAll: notifyAll);
-    if (!mounted) return;
-    setState(() => _sending = false);
-    res.when(
-      success: (_) {
-        ref.invalidate(taskCommentsProvider(widget.taskId));
-      },
-      failure: (err) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.message)),
-        );
-      },
-    );
+    try {
+      final res =
+          await repo.createComment(widget.taskId, tokens, notifyAll: notifyAll);
+      if (!mounted) return;
+      res.when(
+        success: (_) {
+          ref.invalidate(taskCommentsProvider(widget.taskId));
+        },
+        failure: (err) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(err.message)),
+          );
+        },
+      );
+    } finally {
+      // Always clear the spinner — otherwise a failure (or an unexpected
+      // parse error while reading the create response) strands the send
+      // button spinning even though the comment was posted server-side.
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final comments = ref.watch(taskCommentsProvider(widget.taskId));
+    final task = ref.watch(taskDetailProvider(widget.taskId)).value;
+    // ClickUp fills `text_content` with the plain-text description; fall back
+    // to the raw `description` field if that's empty.
+    final description = (task?.textContent?.trim().isNotEmpty ?? false)
+        ? task!.textContent!.trim()
+        : (task?.description?.trim().isNotEmpty ?? false)
+            ? task!.description!.trim()
+            : null;
+    final header =
+        description == null ? null : _DescriptionHeader(text: description);
 
     return Column(
       children: [
@@ -53,16 +69,27 @@ class _CommentsTabState extends ConsumerState<CommentsTab> {
                   ref.invalidate(taskCommentsProvider(widget.taskId)),
             ),
             data: (list) {
-              if (list.isEmpty) {
-                return const Center(child: Text('No comments yet.'));
-              }
               return RefreshIndicator(
                 onRefresh: () async =>
                     ref.invalidate(taskCommentsProvider(widget.taskId)),
                 child: ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: list.length,
-                  itemBuilder: (_, i) => _CommentBubble(comment: list[i]),
+                  // Slot 0 is the description header (when present); the empty
+                  // placeholder follows it so the description stays visible
+                  // even before any comments exist.
+                  itemCount: (header == null ? 0 : 1) +
+                      (list.isEmpty ? 1 : list.length),
+                  itemBuilder: (_, i) {
+                    if (header != null && i == 0) return header;
+                    final index = header == null ? i : i - 1;
+                    if (list.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: Text('No comments yet.')),
+                      );
+                    }
+                    return _CommentBubble(comment: list[index]);
+                  },
                 ),
               );
             },
@@ -122,6 +149,39 @@ class _CommentBubble extends StatelessWidget {
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: theme.colorScheme.primary)),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The task description, shown pinned at the top of the conversation history
+/// so the reader has context before the comments.
+class _DescriptionHeader extends StatelessWidget {
+  final String text;
+  const _DescriptionHeader({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Description',
+              style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5)),
+          const SizedBox(height: 6),
+          SelectableText(text, style: theme.textTheme.bodyMedium),
         ],
       ),
     );

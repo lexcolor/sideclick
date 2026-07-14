@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/task.dart';
 import '../../models/time_entry.dart';
 import '../../providers/detail_providers.dart';
+import 'live_timer_text.dart';
 
 class TimeTab extends ConsumerWidget {
   final Task task;
@@ -104,10 +105,11 @@ class _TimerControlState extends ConsumerState<_TimerControl> {
 
   @override
   Widget build(BuildContext context) {
-    final runningOther = widget.running.maybeWhen(
-      data: (e) => e != null && e.task?.id != widget.task.id,
-      orElse: () => false,
-    );
+    final theme = Theme.of(context);
+    final runningEntry = widget.running.valueOrNull;
+    final runningOther =
+        runningEntry != null && runningEntry.task?.id != widget.task.id;
+    final startMs = widget.isRunningThisTask ? runningEntry?.start : null;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -119,16 +121,30 @@ class _TimerControlState extends ConsumerState<_TimerControl> {
                 : Icons.timer_outlined,
             color: widget.isRunningThisTask
                 ? const Color(0xFFE5484D)
-                : Theme.of(context).colorScheme.primary,
+                : theme.colorScheme.primary,
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              widget.isRunningThisTask
-                  ? 'Timer running for this task'
-                  : runningOther
-                      ? 'A timer is running on another task'
-                      : 'No timer running',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.isRunningThisTask
+                      ? 'Timer running for this task'
+                      : runningOther
+                          ? 'A timer is running on another task'
+                          : 'No timer running',
+                ),
+                if (startMs != null)
+                  LiveTimerText(
+                    startEpochMs: startMs,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: const Color(0xFFE5484D),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+              ],
             ),
           ),
           FilledButton.icon(

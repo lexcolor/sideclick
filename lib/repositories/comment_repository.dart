@@ -71,7 +71,11 @@ class CommentRepository {
     return result;
   }
 
-  Future<Result<Comment>> createComment(
+  /// Posts a new comment. The create endpoint returns only a loose echo (id,
+  /// hist_id, date) — not a full comment — so we don't parse it into a
+  /// [Comment]; callers re-fetch the thread. Parsing that partial payload was
+  /// the cause of a swallowed exception that left the send button spinning.
+  Future<Result<void>> createComment(
     String taskId,
     List<CommentToken> tokens, {
     bool notifyAll = false,
@@ -84,16 +88,12 @@ class CommentRepository {
       },
     );
     return res.when(
-      // Create returns the new comment id (and echoes fields); wrap loosely.
-      success: (data) => Success(Comment.fromJson({
-        'id': (data as Map)['id']?.toString() ?? '',
-        ...Map<String, dynamic>.from(data),
-      })),
+      success: (_) => const Success(null),
       failure: (err) => Failure(err),
     );
   }
 
-  Future<Result<Comment>> reply(
+  Future<Result<void>> reply(
     String commentId,
     List<CommentToken> tokens, {
     bool notifyAll = false,
@@ -106,10 +106,7 @@ class CommentRepository {
       },
     );
     return res.when(
-      success: (data) => Success(Comment.fromJson({
-        'id': (data as Map)['id']?.toString() ?? '',
-        ...Map<String, dynamic>.from(data),
-      })),
+      success: (_) => const Success(null),
       failure: (err) => Failure(err),
     );
   }
