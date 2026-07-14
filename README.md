@@ -7,10 +7,10 @@ without the clutter of the web UI. Built with Flutter for Windows, macOS, Androi
 
 - **Your tasks only** — pulls every task assigned to you across the whole workspace.
 - **Urgency swatch** on each card:
-  - 🔴 **red** — overdue
-  - 🟡 **yellow** — due within 7 days
-  - 🟢 **green** — due later
-  - 🔵 **blue** — no due date
+  - **red** — overdue
+  - **yellow** — due within 7 days
+  - **green** — due later
+  - **blue** — no due date
 - **Priority chip** (urgent / high / normal / low).
 - **Quick filters & sort** — overdue, due-this-week, include-closed; sort by due date,
   priority, or name.
