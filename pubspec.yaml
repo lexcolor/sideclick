@@ -96,7 +96,7 @@ msix_config:
   # NOTE: `publisher` must exactly match your signing certificate's subject.
   # For local/self-signed testing the default below works; replace for release.
   publisher: CN=SideClick
-  msix_version: 1.0.3.0
+  msix_version: 1.0.4.0
   logo_path: assets/icon/sideclick_icon.png
   # App has no special OS capabilities beyond outbound network (internetClient).
   capabilities: internetClient
