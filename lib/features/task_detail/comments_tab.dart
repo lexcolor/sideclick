@@ -47,16 +47,6 @@ class _CommentsTabState extends ConsumerState<CommentsTab> {
   @override
   Widget build(BuildContext context) {
     final comments = ref.watch(taskCommentsProvider(widget.taskId));
-    final task = ref.watch(taskDetailProvider(widget.taskId)).value;
-    // ClickUp fills `text_content` with the plain-text description; fall back
-    // to the raw `description` field if that's empty.
-    final description = (task?.textContent?.trim().isNotEmpty ?? false)
-        ? task!.textContent!.trim()
-        : (task?.description?.trim().isNotEmpty ?? false)
-            ? task!.description!.trim()
-            : null;
-    final header =
-        description == null ? null : _DescriptionHeader(text: description);
 
     return Column(
       children: [
@@ -72,25 +62,21 @@ class _CommentsTabState extends ConsumerState<CommentsTab> {
               return RefreshIndicator(
                 onRefresh: () async =>
                     ref.invalidate(taskCommentsProvider(widget.taskId)),
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  // Slot 0 is the description header (when present); the empty
-                  // placeholder follows it so the description stays visible
-                  // even before any comments exist.
-                  itemCount: (header == null ? 0 : 1) +
-                      (list.isEmpty ? 1 : list.length),
-                  itemBuilder: (_, i) {
-                    if (header != null && i == 0) return header;
-                    final index = header == null ? i : i - 1;
-                    if (list.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: Text('No comments yet.')),
-                      );
-                    }
-                    return _CommentBubble(comment: list[index]);
-                  },
-                ),
+                child: list.isEmpty
+                    ? ListView(
+                        // Needs to be scrollable so pull-to-refresh works.
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: Text('No comments yet.')),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: list.length,
+                        itemBuilder: (_, i) => _CommentBubble(comment: list[i]),
+                      ),
               );
             },
           ),
@@ -149,39 +135,6 @@ class _CommentBubble extends StatelessWidget {
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: theme.colorScheme.primary)),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// The task description, shown pinned at the top of the conversation history
-/// so the reader has context before the comments.
-class _DescriptionHeader extends StatelessWidget {
-  final String text;
-  const _DescriptionHeader({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Description',
-              style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5)),
-          const SizedBox(height: 6),
-          SelectableText(text, style: theme.textTheme.bodyMedium),
         ],
       ),
     );

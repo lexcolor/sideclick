@@ -196,7 +196,11 @@ class TasksController extends StateNotifier<TasksState> {
   }
 
   /// Optimistically applies a status change, then confirms with the API.
-  Future<void> changeStatus(Task task, String newStatus) async {
+  ///
+  /// Returns the [AppError] if the change was hard-rejected (and rolled back)
+  /// so the caller can surface it — otherwise null, whether the update was
+  /// confirmed by the server or just queued for later sync while offline.
+  Future<AppError?> changeStatus(Task task, String newStatus) async {
     final updated = [
       for (final t in state.tasks)
         if (t.id == task.id)
@@ -208,12 +212,13 @@ class TasksController extends StateNotifier<TasksState> {
 
     final repo = _ref.read(taskRepositoryProvider);
     final res = await repo.updateStatus(task.id, newStatus);
-    await res.when(
+    return await res.when(
       success: (serverTask) async {
         state = state.copyWith(tasks: [
           for (final t in state.tasks)
             if (t.id == serverTask.id) serverTask else t
         ]);
+        return null;
       },
       failure: (err) async {
         if (err.kind == AppErrorKind.network) {
@@ -225,12 +230,13 @@ class TasksController extends StateNotifier<TasksState> {
             payload: jsonEncode({'status': newStatus}),
             createdAt: DateTime.now(),
           ));
-        } else {
-          // Hard failure: roll back the optimistic change.
-          state = state.copyWith(tasks: [
-            for (final t in state.tasks) if (t.id == task.id) task else t
-          ], error: err);
+          return null;
         }
+        // Hard failure: roll back the optimistic change.
+        state = state.copyWith(tasks: [
+          for (final t in state.tasks) if (t.id == task.id) task else t
+        ], error: err);
+        return err;
       },
     );
   }
@@ -240,6 +246,15 @@ final tasksControllerProvider =
     StateNotifierProvider<TasksController, TasksState>(
   (ref) => TasksController(ref),
 );
+
+/// The real, ordered status set configured on a List (including any
+/// workspace-specific custom statuses), used to populate the status-change
+/// sheet instead of a hardcoded guess.
+final listStatusesProvider =
+    FutureProvider.family<List<TaskStatus>, String>((ref, listId) async {
+  final res = await ref.watch(taskRepositoryProvider).listStatuses(listId);
+  return res.when(success: (s) => s, failure: (e) => throw e);
+});
 
 /// Applies the active filter + sort to the loaded tasks for display.
 final visibleTasksProvider = Provider<List<Task>>((ref) {

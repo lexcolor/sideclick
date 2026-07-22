@@ -9,6 +9,7 @@ class Endpoints {
   static String teamTasks(String teamId) => '/team/$teamId/task';
   static String teamSpaces(String teamId) => '/team/$teamId/space';
   static String task(String taskId) => '/task/$taskId';
+  static String list(String listId) => '/list/$listId';
 
   static String taskComments(String taskId) => '/task/$taskId/comment';
   static String commentThread(String commentId) => '/comment/$commentId/thread';

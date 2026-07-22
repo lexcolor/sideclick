@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/task.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/detail_providers.dart';
 import '../../providers/tasks_provider.dart';
@@ -10,6 +9,7 @@ import '../../sync/sync_service.dart';
 import '../task_detail/live_timer_text.dart';
 import '../task_detail/task_detail_screen.dart';
 import 'filter_bar.dart';
+import 'status_sheet.dart';
 import 'task_card.dart';
 
 class TaskListScreen extends ConsumerStatefulWidget {
@@ -128,38 +128,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     );
   }
 
-  Future<void> _showStatusSheet(Task task) async {
-    // Common ClickUp statuses. The exact set varies per Space; these cover the
-    // typical defaults and let the user pick a custom one.
-    const common = ['to do', 'in progress', 'review', 'complete', 'closed'];
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Change status',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            for (final s in common)
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: Text(s),
-                onTap: () => Navigator.of(ctx).pop(s),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (selected != null) {
-      await ref
-          .read(tasksControllerProvider.notifier)
-          .changeStatus(task, selected);
-    }
-  }
-
   Widget _body(
     BuildContext context,
     TasksState state,
@@ -201,7 +169,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               builder: (_) => TaskDetailScreen(taskId: task.id),
             ),
           ),
-          onChangeStatus: () => _showStatusSheet(task),
+          onChangeStatus: () => showStatusSheet(context, ref, task),
         );
       },
     );

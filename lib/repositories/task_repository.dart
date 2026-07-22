@@ -113,6 +113,30 @@ class TaskRepository {
     );
   }
 
+  /// Fetches the ordered set of statuses configured on [listId], including any
+  /// workspace-specific custom statuses (ClickUp defines statuses per List, not
+  /// globally). Falling back to a generic set is the caller's responsibility.
+  Future<Result<List<TaskStatus>>> listStatuses(String listId) async {
+    final res = await _client.get(Endpoints.list(listId));
+    return res.when(
+      success: (data) {
+        final statuses = (data as Map)['statuses'];
+        if (statuses is! List) return const Success(<TaskStatus>[]);
+        final list = statuses
+            .map((s) => TaskStatus.fromJson(s as Map<String, dynamic>))
+            .toList()
+          ..sort((a, b) {
+            final ai = a.orderIndex;
+            final bi = b.orderIndex;
+            if (ai is num && bi is num) return ai.compareTo(bi);
+            return 0;
+          });
+        return Success(list);
+      },
+      failure: (err) => Failure(err),
+    );
+  }
+
   /// Updates a task's status by its status name (as ClickUp expects).
   Future<Result<Task>> updateStatus(String taskId, String status) async {
     final res = await _client.put(
